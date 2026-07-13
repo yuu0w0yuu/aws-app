@@ -1,0 +1,48 @@
+{
+  "containerDefinitions": [
+    {
+      "cpu": 0,
+      "essential": true,
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f localhost:8080 || exit 1"
+        ],
+        "interval": 5,
+        "retries": 3,
+        "timeout": 5
+      },
+      "image": "028365237334.dkr.ecr.ap-northeast-1.amazonaws.com/test-app:v1.0.0",
+      "name": "test-app",
+      "portMappings": [
+        {
+          "appProtocol": "http",
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "name": "http",
+          "protocol": "tcp"
+        }
+      ],
+      "restartPolicy": {
+        "enabled": false,
+        "restartAttemptPeriod": 60
+      },
+      "stopTimeout": 10,
+      "versionConsistency": ""
+    }
+  ],
+  "cpu": "1024",
+  "executionRoleArn": "arn:aws:iam::028365237334:role/ecsTaskExecutionRole",
+  "family": "test-app",
+  "ipcMode": "",
+  "memory": "2048",
+  "networkMode": "awsvpc",
+  "pidMode": "",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  }
+}

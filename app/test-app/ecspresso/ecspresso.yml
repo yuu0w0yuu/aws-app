@@ -1,0 +1,10 @@
+region: ap-northeast-1
+cluster: sandbox-app
+service: test-app-service
+service_definition: ecs-service-def.json
+task_definition: ecs-task-def.json
+timeout: "10m0s"
+plugins:
+  - name: tfstate
+    config:
+      url: s3://terraform-tfstate-sandbox-app-028365237334-ap-northeast-1-an/terraform.tfstate
