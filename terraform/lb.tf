@@ -4,14 +4,14 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
 
   subnets = [
-    for subnet in aws_subnet.public : subnet.id
+    for subnet in data.aws_subnet.public : subnet.id
   ]
   security_groups = [aws_security_group.lb_sg.id]
 }
 
 resource "aws_security_group" "lb_sg" {
   name   = "${local.service}-lb-sg"
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   ingress {
     from_port   = 443
@@ -69,7 +69,7 @@ resource "aws_lb_target_group" "test_app" {
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   health_check {
     path                = "/"

@@ -24,7 +24,7 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
 resource "aws_security_group" "ecs_service" {
   name        = "${local.service}-ecs-service"
   description = "Security group for ${local.service} ECS service"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   ingress {
     from_port   = 0

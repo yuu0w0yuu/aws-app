@@ -1,44 +1,7 @@
-### VPC
-resource "aws_vpc" "main" {
-
-  cidr_block = local.vpc.vpc_cidr
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "${local.service}-${local.env}-vpc"
-  }
-}
-
-### Subnets
-resource "aws_subnet" "public" {
-  vpc_id   = aws_vpc.main.id
-  for_each = { for i in local.vpc.public_subnets : i.az => i }
-
-  cidr_block        = each.value.cidr
-  availability_zone = each.value.az
-
-  tags = {
-    Name = "${local.service}-${local.env}-public-${substr(each.value.az, -2, 2)}"
-  }
-}
-
-resource "aws_subnet" "private" {
-  vpc_id   = aws_vpc.main.id
-  for_each = { for i in local.vpc.private_subnets : i.az => i }
-
-  cidr_block        = each.value.cidr
-  availability_zone = each.value.az
-
-  tags = {
-    Name = "${local.service}-${local.env}-private-${substr(each.value.az, -2, 2)}"
-  }
-}
-
+# VPC/Subnetはterraform/common/vpc.tfで作成
 ### Gateway
 resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
   tags = {
     Name = "${local.service}-${local.env}-internet-gateway"
   }
@@ -54,7 +17,7 @@ resource "aws_eip" "natgateway" {
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.natgateway.id
   #コストを考慮して1aにのみ作成
-  subnet_id = aws_subnet.public["ap-northeast-1a"].id
+  subnet_id = data.aws_subnet.public["ap-northeast-1a"].id
   tags = {
     Name = "${local.service}-${local.env}-natgateway"
   }
@@ -63,7 +26,7 @@ resource "aws_nat_gateway" "main" {
 ### Route Table
 ## Public Subnet -> Internet
 resource "aws_route_table" "internet_gateway" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
@@ -74,14 +37,14 @@ resource "aws_route_table" "internet_gateway" {
 }
 
 resource "aws_route_table_association" "internet_gateway" {
-  for_each       = { for i in local.vpc.public_subnets : i.az => i }
+  for_each       = data.aws_subnet.public
   route_table_id = aws_route_table.internet_gateway.id
-  subnet_id      = aws_subnet.public[each.value.az].id
+  subnet_id      = each.value.id
 }
 
 ## Private Subnet -> Nat Gateway -> Internet
 resource "aws_route_table" "gateway" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
   route {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.main.id
@@ -92,16 +55,16 @@ resource "aws_route_table" "gateway" {
 }
 
 resource "aws_route_table_association" "gateway" {
-  for_each       = { for i in local.vpc.private_subnets : i.az => i }
+  for_each       = data.aws_subnet.private
   route_table_id = aws_route_table.gateway.id
-  subnet_id      = aws_subnet.private[each.value.az].id
+  subnet_id      = each.value.id
 }
 
 ### Security Group for VPC Endpoints
 resource "aws_security_group" "endpoint" {
   name        = "${local.service}-${local.env}-endpoint-sg"
   description = "Security group for VPC endpoints"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   tags = {
     Name = "${local.service}-${local.env}-endpoint-sg"
@@ -123,7 +86,7 @@ resource "aws_vpc_security_group_egress_rule" "egress_endpoint" {
 ### VPC Endpoints
 ## S3 (Gateway)
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = data.aws_vpc.main.id
   service_name      = "com.amazonaws.ap-northeast-1.s3"
   vpc_endpoint_type = "Gateway"
 
@@ -139,11 +102,11 @@ resource "aws_vpc_endpoint_route_table_association" "s3" {
 
 ## ECR API
 resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ecr.api"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
@@ -153,11 +116,11 @@ resource "aws_vpc_endpoint" "ecr_api" {
 
 ## ECR DKR
 resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
@@ -167,11 +130,11 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 
 ## CloudWatch Logs
 resource "aws_vpc_endpoint" "logs" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.logs"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
@@ -181,11 +144,11 @@ resource "aws_vpc_endpoint" "logs" {
 
 ## Secrets Manager
 resource "aws_vpc_endpoint" "secretsmanager" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
@@ -195,11 +158,11 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 
 ## Systems Manager (SSM)
 resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ssm"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
@@ -209,11 +172,11 @@ resource "aws_vpc_endpoint" "ssm" {
 
 ## SSM Messages
 resource "aws_vpc_endpoint" "ssmmessages" {
-  vpc_id              = aws_vpc.main.id
+  vpc_id              = data.aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
+  subnet_ids          = [for subnet in data.aws_subnet.private : subnet.id]
   security_group_ids  = [aws_security_group.endpoint.id]
 
   tags = {
