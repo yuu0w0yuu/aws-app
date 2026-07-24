@@ -18,7 +18,7 @@ resource "aws_rds_cluster" "main" {
 }
 
 resource "aws_rds_cluster_instance" "main" {
-  count              = 1
+  count              = 0
   identifier         = "${local.service}-instance-${count.index + 1}"
   cluster_identifier = aws_rds_cluster.main.id
 
