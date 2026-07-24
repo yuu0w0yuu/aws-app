@@ -2,3 +2,6 @@
 terraform   = '1.15.0'
 aws         = '2.35.21'
 ecspresso   = '2.8.5'
+uv          = '0.11.28'
+node        = '26.5.0'
+pnpm        = '11.13.0'
